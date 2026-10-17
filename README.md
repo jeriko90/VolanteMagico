@@ -18,7 +18,8 @@ iPhone (Safari)  ── dispositivo + WebSocket (WiFi) ──▶  Volante.exe
 - Windows 10/11.
 - El PC y el iPhone en la **misma red WiFi**.
 - **Permisos de administrador una vez** (para instalar el driver ViGEmBus y la regla de firewall).
-- Para **compilar** tú mismo: Python 3.11+ y `pip install -r requirements.txt`.
+- Para **compilar** tú mismo: Python 3.11+ y `pip install -r source/requirements.txt`.
+- ¿Solo quieres jugar? Descarga `dist/Volante.exe` — no necesitas compilar nada.
 
 ## Uso rápido (con el .exe compilado)
 
@@ -37,7 +38,7 @@ iPhone (Safari)  ── dispositivo + WebSocket (WiFi) ──▶  Volante.exe
 ## Compilar el .exe
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File build.ps1
+powershell -ExecutionPolicy Bypass -File source\build.ps1
 ```
 
 El resultado queda en `dist\Volante.exe` (un único archivo portátil).
@@ -45,8 +46,8 @@ El resultado queda en `dist\Volante.exe` (un único archivo portátil).
 ## Ejecutar en desarrollo (sin compilar)
 
 ```powershell
-python -m pip install -r requirements.txt
-python main.py
+python -m pip install -r source\requirements.txt
+python source\main.py
 ```
 
 ## Controles y ajustes
@@ -70,17 +71,20 @@ Desde el engranaje ⚙ en el teléfono (se guardan en `config.json`):
 
 ```
 Volante/
-├─ main.py            # punto de entrada
-├─ gui.py             # ventana Tkinter (URL, QR, estado)
-├─ server.py          # HTTPS + WebSocket + mapeo a vgamepad
-├─ certgen.py         # certificado autofirmado + perfil iOS
-├─ setup_driver.py    # ViGEmBus + firewall + elevación
-├─ config_store.py    # ajustes persistentes
-├─ paths.py           # rutas dev/empaquetado
-├─ web/               # interfaz del teléfono
-├─ Volante.spec       # empaquetado PyInstaller
-├─ build.ps1          # script de build
-└─ requirements.txt
+├─ source/                  # código fuente
+│  ├─ main.py               # punto de entrada
+│  ├─ gui.py                # ventana Tkinter (URL, QR, estado)
+│  ├─ server.py             # HTTPS + WebSocket + mapeo a vgamepad
+│  ├─ certgen.py            # certificado autofirmado + perfil iOS
+│  ├─ setup_driver.py       # ViGEmBus + firewall + elevación
+│  ├─ config_store.py       # ajustes persistentes
+│  ├─ paths.py              # rutas dev/empaquetado
+│  ├─ web/                  # interfaz del teléfono
+│  ├─ Volante.spec          # empaquetado PyInstaller
+│  ├─ build.ps1             # script de build
+│  └─ requirements.txt
+└─ dist/
+   └─ Volante.exe           # ejecutable listo para usar
 ```
 
 ## Solución de problemas
