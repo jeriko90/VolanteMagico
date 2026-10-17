@@ -24,11 +24,13 @@ log = logging.getLogger("volante.update")
 REPO = "jeriko90/VolanteMagico"
 BRANCH = "main"
 
-# Varias fuentes por si raw.githubusercontent esta lento o cachea un 404.
+# Fuentes del manifiesto, en orden de preferencia. La API de GitHub no tiene
+# cache y siempre va al dia; raw/jsDelivr se usan como respaldo (pueden servir
+# una copia cacheada unos minutos).
 _MANIFEST_SOURCES = [
-    (f"https://raw.githubusercontent.com/{REPO}/{BRANCH}/update.json", None),
     (f"https://api.github.com/repos/{REPO}/contents/update.json",
      {"Accept": "application/vnd.github.raw"}),
+    (f"https://raw.githubusercontent.com/{REPO}/{BRANCH}/update.json", None),
     (f"https://cdn.jsdelivr.net/gh/{REPO}@{BRANCH}/update.json", None),
 ]
 

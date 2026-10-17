@@ -16,10 +16,16 @@ python -m PyInstaller --clean --noconfirm --distpath "$root\dist" --workpath "$P
 Write-Host "[3/4] Generando update.json..." -ForegroundColor Cyan
 $match = Select-String -Path "$PSScriptRoot\version.py" -Pattern '__version__\s*=\s*"([^"]+)"'
 $version = $match.Matches[0].Groups[1].Value
-$hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $exe).Hash.ToLower()
+
+# Copia con nombre de version: cada version tiene su propia URL, asi GitHub
+# nunca sirve una copia cacheada de otra version al actualizar.
+$versioned = Join-Path $root "dist\Volante-$version.exe"
+Copy-Item -LiteralPath $exe -Destination $versioned -Force
+
+$hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $versioned).Hash.ToLower()
 $manifest = [ordered]@{
   version = $version
-  url     = "https://raw.githubusercontent.com/jeriko90/VolanteMagico/main/dist/Volante.exe"
+  url     = "https://raw.githubusercontent.com/jeriko90/VolanteMagico/main/dist/Volante-$version.exe"
   sha256  = $hash
   notes   = "Volante $version"
 }
@@ -31,5 +37,6 @@ Write-Host ("  sha256  = " + $hash)
 
 Write-Host "[4/4] Listo." -ForegroundColor Green
 Write-Host "Ejecutable: $exe"
+Write-Host "Versionado: $versioned"
 Write-Host "Manifiesto: $(Join-Path $root 'update.json')"
 Write-Host "Compártelo: el otro usuario solo ejecuta el .exe (1 UAC la primera vez)."
