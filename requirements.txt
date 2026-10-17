@@ -1,0 +1,6 @@
+aiohttp>=3.9
+vgamepad>=0.1.0
+qrcode>=7.4
+pillow>=10.0
+cryptography>=42.0
+pyinstaller>=6.0
