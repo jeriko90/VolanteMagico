@@ -1,6 +1,19 @@
 # Volante
 
-Convierte tu **teléfono (iPhone o Android) en un volante** para juegos de carreras en el PC. Inclinas el teléfono para dirigir, usas pedales táctiles para acelerar y frenar, y el PC lo ve como un **mando Xbox 360 real** (funciona en cualquier juego con soporte de gamepad: Forza, Assetto Corsa, F1, Euro Truck, etc.).
+**Convierte tu teléfono en un volante para juegos de carreras en el PC.** Inclinas el teléfono para dirigir, usas pedales táctiles para acelerar y frenar, y el PC lo ve como un **mando Xbox 360 real** (funciona en cualquier juego con soporte de gamepad: Forza, Assetto Corsa, F1, Euro Truck, etc.).
+
+> ### Funciona con iPhone **y** Android
+> La misma app sirve para los dos: **iPhone / iPad** (Safari) y **Android** (Chrome / Edge). **No hay que instalar ninguna aplicación en el teléfono** — todo es una página web que sirve el propio PC. Además, la página **detecta tu dispositivo automáticamente** y adapta las instrucciones; también puedes elegirlo a mano en ⚙ → *Dispositivo*.
+
+## Compatibilidad
+
+| Plataforma | Navegador | Estado | Qué necesitas |
+|---|---|---|---|
+| **iPhone / iPad** | Safari | Sí | Instalar el perfil del certificado (un toque) |
+| **Android** | Chrome / Edge | Sí | Solo aceptar el aviso de certificado |
+| **PC** | Windows 10 / 11 | Sí | Ejecutar `Volante.exe` (permisos de admin una vez) |
+
+Ambos teléfonos usan los mismos **sensores de movimiento**; el cálculo de dirección es idéntico en iOS y Android. La única diferencia está en cómo se confía el certificado (ver la sección *Uso rápido* más abajo).
 
 ## Cómo funciona
 
@@ -10,13 +23,13 @@ Teléfono (navegador) ── sensores + WebSocket (WiFi) ──▶  Volante.exe
    + pedales / botones táctiles                            → Xbox 360 virtual → juego
 ```
 
-- **Teléfono:** página web (`source/web/`) servida por el PC. Sin instalar ninguna app.
+- **Teléfono:** página web (`source/web/`) servida por el PC. Sin instalar ninguna app (vale iPhone y Android).
 - **PC:** `Volante.exe` crea un mando Xbox 360 virtual con `vgamepad` + ViGEmBus y traduce la entrada del teléfono.
-- **Compatibilidad:** funciona igual en **iPhone/iPad (Safari)** y en **Android (Chrome/Edge)**. La propia página **detecta el dispositivo** y adapta las instrucciones; también puedes elegirlo a mano en ⚙ → *Dispositivo*.
 
 ## Requisitos
 
 - Windows 10/11.
+- Un teléfono **iPhone/iPad (Safari)** o **Android (Chrome/Edge)**.
 - El PC y el teléfono en la **misma red WiFi**.
 - **Permisos de administrador una vez** (para instalar el driver ViGEmBus y la regla de firewall).
 - Para **compilar** tú mismo: Python 3.11+ y `pip install -r source/requirements.txt`.
@@ -24,15 +37,23 @@ Teléfono (navegador) ── sensores + WebSocket (WiFi) ──▶  Volante.exe
 
 ## Uso rápido (con el .exe compilado)
 
-1. Ejecuta `Volante.exe`. La primera vez pedirá UAC para instalar el driver ViGEmBus (una sola vez).
-2. Se abre una ventana con una **URL** y un **QR**. Ábrela en el navegador del teléfono.
-3. **iPhone/iPad (Safari):** acepta el aviso del certificado y luego **instala el perfil**:
-   - Toca **"Abrir el certificado (/ca)"** (o abre `https://IP:8443/ca`).
+1. Ejecuta `Volante.exe` en el PC. La primera vez pedirá UAC para instalar el driver ViGEmBus (una sola vez).
+2. Se abre una ventana con una **URL** y un **QR**. Escanéalo o abre la URL en el navegador del teléfono (iPhone o Android, el que tengas).
+3. Confía en el certificado. **Sigue los pasos según tu dispositivo:**
+
+   **iPhone / iPad — Safari** (hay que instalar el perfil porque iOS lo exige):
+   - Toca **"Abrir el certificado (/ca)"** en la ventana del PC (o abre `https://IP:8443/ca` en el iPhone).
    - Se descarga un perfil → **Ajustes → General → VPN y dispositivo → Instalar**.
    - **Ajustes → General → Información → Ajustes de confianza de certificados** → activa *Volante Local CA*.
-4. **Android (Chrome/Edge):** solo acepta el aviso **"La conexión no es privada"** → *Continuar*. No hace falta instalar nada (opcionalmente puedes instalar el certificado desde `/ca`).
-5. Vuelve a la página, toca **"Activar sensores"** (en iOS concede el permiso de movimiento).
-6. Coloca el teléfono en posición neutra y pulsa **Calibrar**. ¡A jugar!
+
+   **Android — Chrome / Edge** (no hace falta instalar nada):
+   - Acepta el aviso **"La conexión no es privada"** → *Continuar*.
+   - *(Opcional)* puedes instalar el certificado desde `/ca` para que no vuelva a avisar.
+
+4. Vuelve a la página, toca **"Activar sensores"** (en iPhone concede el permiso de movimiento; en Android se activa al instante).
+5. Coloca el teléfono en posición neutra y pulsa **Calibrar**. ¡A jugar!
+
+> **Los dos dispositivos funcionan igual** una vez conectados: mismos controles, misma calibración, misma respuesta. La página detecta cuál usas y te muestra los pasos que corresponden.
 
 > El teléfono funciona mejor en horizontal (modo volante). La dirección se ajusta sola a la orientación: ya no hay que invertir el giro al girarlo de lado. Los pedales son las zonas grandes inferiores (izquierda = freno, derecha = acelerador); en modo *Ambos* un toque da el 100% y deslizar el dedo modula la intensidad.
 
