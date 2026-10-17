@@ -42,6 +42,7 @@ const state = {
   latency: null,
   battery: null,
   pointerInfo: {},
+  devicePref: "auto",
 };
 
 const $ = (id) => document.getElementById(id);
@@ -372,6 +373,76 @@ function updateStats() {
   $("bat").textContent = (state.battery === null ? "--" : state.battery) + " %";
 }
 
+/* ------------------------- dispositivo ------------------------- */
+// Textos que se adaptan a iOS / Android / otro. Los sensores funcionan igual
+// en ambos; solo cambian las instrucciones (sobre todo lo del certificado).
+const DEVICE_TEXT = {
+  ios: {
+    intro: "Convierte tu iPhone o iPad en un volante para juegos de carreras en el PC.",
+    cert: "iOS: la primera vez instala el perfil del certificado (botón «Abrir el certificado» en el PC o abre /ca) y actívalo en Ajustes → General → VPN y dispositivo.",
+  },
+  android: {
+    intro: "Convierte tu teléfono Android en un volante para juegos de carreras en el PC.",
+    cert: "Android: al abrir la URL acepta el aviso «La conexión no es privada» (o instala el certificado desde /ca). Luego toca «Activar sensores».",
+  },
+  other: {
+    intro: "Convierte tu teléfono en un volante para juegos de carreras en el PC.",
+    cert: "",
+  },
+};
+
+function detectPlatform() {
+  const ua = navigator.userAgent || "";
+  if (/iPhone|iPad|iPod/i.test(ua)) return "ios";
+  if (/Android/i.test(ua)) return "android";
+  // iPadOS 13+ se identifica como Mac; se distingue por el soporte táctil.
+  if (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1) return "ios";
+  return "other";
+}
+
+function loadDevicePref() {
+  try { return localStorage.getItem("volante.device") || "auto"; } catch (e) { return "auto"; }
+}
+
+function saveDevicePref(v) {
+  try { localStorage.setItem("volante.device", v); } catch (e) {}
+}
+
+function effectiveDevice() {
+  return state.devicePref === "auto" ? detectPlatform() : state.devicePref;
+}
+
+function deviceLabel() {
+  const d = effectiveDevice();
+  return d === "ios" ? "iPhone/iPad (iOS)" : d === "android" ? "Android" : "otro";
+}
+
+function applyDevice() {
+  const t = DEVICE_TEXT[effectiveDevice()] || DEVICE_TEXT.other;
+  const intro = $("deviceIntro");
+  if (intro) intro.textContent = t.intro;
+  const hint = $("certHint");
+  if (hint) hint.textContent = t.cert;
+  const det = $("deviceDetected");
+  if (det) {
+    det.textContent = deviceLabel() + (state.devicePref === "auto" ? " (automático)" : " (manual)");
+  }
+}
+
+function setupDevice() {
+  state.devicePref = loadDevicePref();
+  const sel = $("device");
+  if (sel) {
+    sel.value = state.devicePref;
+    sel.addEventListener("change", () => {
+      state.devicePref = sel.value;
+      saveDevicePref(state.devicePref);
+      applyDevice();
+    });
+  }
+  applyDevice();
+}
+
 /* ------------------------- ajustes ------------------------- */
 function applyConfigToUI() {
   $("maxSteerDegrees").value = config.maxSteerDegrees;
@@ -441,6 +512,7 @@ function init() {
   setupPedal($("throttle"), "throttle");
   setupPedal($("brake"), "brake");
   setupSettings();
+  setupDevice();
   setupBattery();
   applyConfigToUI();
   connect();

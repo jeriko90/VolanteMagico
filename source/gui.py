@@ -64,7 +64,7 @@ class VolanteGUI:
 
         tk.Label(wrap, text="Volante", bg=BG, fg=FG,
                  font=("Segoe UI", 22, "bold")).pack(anchor="w")
-        tk.Label(wrap, text="Tu iPhone como volante para juegos de carreras en PC",
+        tk.Label(wrap, text="Tu teléfono (iPhone o Android) como volante para juegos de carreras en PC",
                  bg=BG, fg=MUTED, font=("Segoe UI", 10)).pack(anchor="w", pady=(0, 12))
 
         card = tk.Frame(wrap, bg=CARD, padx=16, pady=16)
@@ -74,7 +74,7 @@ class VolanteGUI:
                                  font=("Segoe UI", 11), width=28, height=12)
         self.qr_label.pack()
 
-        tk.Label(card, text="Abre esta dirección en Safari (iPhone):",
+        tk.Label(card, text="Abre esta dirección en el navegador del teléfono:",
                  bg=CARD, fg=MUTED, font=("Segoe UI", 9)).pack(pady=(10, 2))
 
         self.url_var = tk.StringVar(value="iniciando...")
@@ -90,9 +90,12 @@ class VolanteGUI:
         ttk.Button(row, text="Abrir el certificado (/ca)", command=self._open_ca).pack(side="left", padx=6)
         ttk.Button(row, text="Abrir logs", command=self._open_logs).pack(side="left")
 
-        tk.Label(card, text="iPhone: abrir la URL → aceptar aviso → descargar/instalar el "
-                            "perfil del certificado → Ajustes → General → VPN y "
-                            "dispositivo → activar confianza → volver y tocar 'Activar sensores'.",
+        tk.Label(card, text="iPhone: abrir la URL → aceptar aviso → instalar el perfil del "
+                            "certificado (/ca) → Ajustes → General → VPN y dispositivo → "
+                            "activar confianza.\n"
+                            "Android: abrir la URL → aceptar el aviso 'La conexión no es "
+                            "privada' (o instalar el certificado desde /ca).\n"
+                            "En ambos: volver a la página y tocar 'Activar sensores'.",
                  bg=CARD, fg=MUTED, font=("Segoe UI", 8), wraplength=400, justify="left").pack(
             anchor="w", pady=(12, 0))
 

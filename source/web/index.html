@@ -66,10 +66,12 @@
 <div id="startOverlay" class="overlay">
   <div class="panel">
     <h1>Volante</h1>
-    <p>Convierte tu iPhone en un volante para juegos de carreras en el PC.</p>
+    <p id="deviceIntro">Convierte tu teléfono en un volante para juegos de carreras en el PC.</p>
     <p class="muted">Necesitas conceder acceso a los <b>sensores de movimiento</b>. Sujeta el teléfono <b>en horizontal</b>, en la posición neutra, antes de activar.</p>
+    <p id="certHint" class="muted small"></p>
     <button id="startBtn" class="big">Activar sensores</button>
     <p id="startStatus" class="muted small"></p>
+    <p class="muted small">Dispositivo detectado: <span id="deviceDetected">...</span></p>
   </div>
 </div>
 
@@ -77,6 +79,13 @@
 <div id="settingsOverlay" class="overlay hidden">
   <div class="panel">
     <h2>Ajustes</h2>
+
+    <label class="row"><span>Dispositivo</span>
+      <select id="device">
+        <option value="auto">Automático (detectar)</option>
+        <option value="ios">iPhone / iPad (iOS)</option>
+        <option value="android">Android</option>
+      </select></label>
 
     <div class="grid2">
       <label class="row"><span>Ángulo máx. (<span id="vMax">45</span>&deg;)</span>
