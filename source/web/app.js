@@ -239,44 +239,43 @@ function activeButtonCodes() {
 }
 
 /* ------------------------- cálculo ------------------------- */
-// Ángulo de la pantalla (0/90/180/270) según screen.orientation (con
-// respaldo a window.orientation en navegadores antiguos).
-function getScreenAngle() {
-  if (typeof screen !== "undefined" && screen.orientation &&
-      typeof screen.orientation.angle === "number") {
-    return ((screen.orientation.angle % 360) + 360) % 360;
-  }
-  if (typeof window !== "undefined" && typeof window.orientation === "number") {
-    return ((-window.orientation % 360) + 360) % 360;
-  }
-  return 0;
+const DEG2RAD = Math.PI / 180;
+const RAD2DEG = 180 / Math.PI;
+
+// Diferencia angular con signo en el rango (-180, 180].
+function angleDiff(a, b) {
+  let d = (a - b) % 360;
+  if (d > 180) d -= 360;
+  if (d <= -180) d += 360;
+  return d;
 }
 
-// Reasigna (beta, gamma) al marco de la pantalla: sx = inclinación
-// izquierda-derecha tal como la percibe el usuario, sy = adelante-atrás.
-// Esto hace que el volante funcione igual en vertical y en horizontal.
-function remapToScreen(beta, gamma, angle) {
-  switch (angle) {
-    case 90: return [beta, -gamma];
-    case 180: return [-gamma, -beta];
-    case 270: return [-beta, gamma];
-    default: return [gamma, beta];
-  }
+// "Giro" del teléfono sobre el eje de la pantalla, como si fuera el
+// volante de un coche. Se calcula solo con beta y gamma, así que da igual
+// si el teléfono está en vertical u horizontal y funciona igual en iOS y
+// Android (no depende de screen.orientation, que en Android a veces no
+// refleja bien la postura real).
+function spinAngle() {
+  const b = state.last.beta * DEG2RAD;
+  const g = state.last.gamma * DEG2RAD;
+  return Math.atan2(Math.cos(b) * Math.sin(g), Math.sin(b)) * RAD2DEG;
 }
 
-// Devuelve la inclinación ya alineada con la pantalla según el eje elegido.
+// Devuelve la inclinación alineada con la pantalla según el eje elegido.
 function currentTilt() {
   const beta = state.last.beta;
   const gamma = state.last.gamma;
   if (config.axis === "gamma") return { sx: gamma, sy: beta };
   if (config.axis === "beta") return { sx: beta, sy: gamma };
-  const remap = remapToScreen(beta, gamma, getScreenAngle());
-  return { sx: remap[0], sy: remap[1] };
+  return { sx: spinAngle(), sy: beta };
 }
 
 function computeSteering(tilt) {
   const max = Math.max(1, config.maxSteerDegrees || 45);
-  let n = (tilt.sx - state.center.sx) / max;
+  const raw = config.axis === "auto"
+    ? angleDiff(tilt.sx, state.center.sx)
+    : (tilt.sx - state.center.sx);
+  let n = raw / max;
   n = Math.max(-1, Math.min(1, n));
 
   const dz = config.deadzone || 0;
@@ -355,6 +354,15 @@ function updateVisuals(steer, throttle, brake) {
   if (tPct) tPct.textContent = throttle > 0.005 ? Math.round(throttle * 100) + "%" : "";
   const bPct = bEl.querySelector(".pedalPct");
   if (bPct) bPct.textContent = brake > 0.005 ? Math.round(brake * 100) + "%" : "";
+
+  const ro = $("tiltReadout");
+  if (ro) {
+    const b = Math.round(state.last.beta);
+    const g = Math.round(state.last.gamma);
+    const s = Math.round(spinAngle());
+    ro.innerHTML = "Giro: <b>" + deg + "&deg;</b> &nbsp;·&nbsp; sensor " +
+      (state.hasData ? "OK" : "sin datos") + " &nbsp;·&nbsp; b=" + b + " g=" + g + " spin=" + s;
+  }
 }
 
 function updateConn() {
@@ -492,8 +500,24 @@ function setupSettings() {
     el.addEventListener("change", handler);
   });
 
-  $("settingsBtn").addEventListener("click", () => $("settingsOverlay").classList.remove("hidden"));
-  $("closeSettings").addEventListener("click", () => $("settingsOverlay").classList.add("hidden"));
+  const overlay = $("settingsOverlay");
+  const openSettings = () => overlay.classList.remove("hidden");
+  const closeSettings = () => overlay.classList.add("hidden");
+
+  $("settingsBtn").addEventListener("click", () => {
+    if (overlay.classList.contains("hidden")) openSettings();
+    else closeSettings();
+  });
+  $("closeSettings").addEventListener("click", closeSettings);
+  $("closeX").addEventListener("click", closeSettings);
+  // Tocar el fondo oscuro (fuera del panel) también cierra.
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) closeSettings();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeSettings();
+  });
+
   $("calibBtn").addEventListener("click", calibrate);
   $("recenterBtn").addEventListener("click", recenter);
 }
@@ -515,6 +539,7 @@ function init() {
   setupPedal($("throttle"), "throttle");
   setupPedal($("brake"), "brake");
   setupSettings();
+  if (location.hash === "#ajustes") $("settingsOverlay").classList.remove("hidden");
   setupDevice();
   setupBattery();
   applyConfigToUI();
@@ -524,7 +549,12 @@ function init() {
   setInterval(() => { state.pingTs = Date.now(); state.wantPing = true; }, 1000);
   setInterval(updateStats, 500);
 
-  document.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
+  // Bloquea el scroll/zoom al conducir, pero PERMITE desplazarse dentro de
+  // los paneles (Ajustes), que pueden ser más altos que la pantalla.
+  document.addEventListener("touchmove", (e) => {
+    if (e.target.closest && e.target.closest(".overlay")) return;
+    e.preventDefault();
+  }, { passive: false });
   document.addEventListener("gesturestart", (e) => e.preventDefault());
 }
 

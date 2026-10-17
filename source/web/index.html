@@ -77,8 +77,11 @@
 
 <!-- Ajustes -->
 <div id="settingsOverlay" class="overlay hidden">
-  <div class="panel">
-    <h2>Ajustes</h2>
+  <div class="panel settings" id="settingsPanel">
+    <div class="panelHead">
+      <h2>Ajustes</h2>
+      <button id="closeX" class="closeX" aria-label="Cerrar ajustes">&#10005;</button>
+    </div>
 
     <label class="row"><span>Dispositivo</span>
       <select id="device">
@@ -126,7 +129,9 @@
       <button id="recenterBtn">Recentrar</button>
     </div>
 
-    <button id="closeSettings" class="big">Cerrar</button>
+    <div class="readout" id="tiltReadout">Giro: <b>0&deg;</b></div>
+
+    <button id="closeSettings" class="big">Listo</button>
   </div>
 </div>
 
