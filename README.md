@@ -72,6 +72,17 @@ python -m pip install -r source\requirements.txt
 python source\main.py
 ```
 
+## Actualizaciones
+
+El `.exe` **se actualiza solo**: en la ventana del PC hay un botón **"Chequear actualizaciones"** (y también comprueba al abrir). Si hay una versión nueva, te pregunta y, al aceptar, **descarga la última versión, la instala y reinicia** la app. No hace falta volver a bajar nada del repositorio ni recompilar.
+
+- Se comprueba contra el archivo `update.json` del repositorio (la versión, la URL del `.exe` y su hash **SHA-256**).
+- Antes de aplicar la descarga se **verifica el hash**, así que no se instala un archivo corrupto.
+- Tus ajustes (`config.json`) y los certificados (`certs/`) **se conservan**.
+- Si la carpeta del `.exe` no se puede escribir (p. ej. `Program Files` sin permisos), en vez de fallar guarda la nueva versión en **Descargas** y te indica cómo reemplazarla.
+
+**Publicar una versión nueva (mantenedor):** sube el número en `source/version.py`, ejecuta `powershell -ExecutionPolicy Bypass -File source\build.ps1` (esto regenera `dist\Volante.exe` **y** `update.json` con el hash) y haz *push* de `dist/Volante.exe` + `update.json`.
+
 ## Controles y ajustes
 
 Desde el engranaje ⚙ en el teléfono (se guardan en `config.json`):
@@ -96,16 +107,19 @@ Desde el engranaje ⚙ en el teléfono (se guardan en `config.json`):
 Volante/
 ├─ source/                  # código fuente
 │  ├─ main.py               # punto de entrada
-│  ├─ gui.py                # ventana Tkinter (URL, QR, estado)
+│  ├─ gui.py                # ventana Tkinter (URL, QR, estado, actualizaciones)
 │  ├─ server.py             # HTTPS + WebSocket + mapeo a vgamepad
 │  ├─ certgen.py            # certificado autofirmado + perfil iOS
 │  ├─ setup_driver.py       # ViGEmBus + firewall + elevación
 │  ├─ config_store.py       # ajustes persistentes
+│  ├─ update.py             # auto-actualización (descarga + reinicio)
+│  ├─ version.py            # número de versión
 │  ├─ paths.py              # rutas dev/empaquetado
 │  ├─ web/                  # interfaz del teléfono
 │  ├─ Volante.spec          # empaquetado PyInstaller
-│  ├─ build.ps1             # script de build
+│  ├─ build.ps1             # script de build (compila y genera update.json)
 │  └─ requirements.txt
+├─ update.json              # manifiesto de la última versión (para el auto-update)
 └─ dist/
    └─ Volante.exe           # ejecutable listo para usar
 ```

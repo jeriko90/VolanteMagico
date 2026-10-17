@@ -379,11 +379,11 @@ function updateStats() {
 const DEVICE_TEXT = {
   ios: {
     intro: "Convierte tu iPhone o iPad en un volante para juegos de carreras en el PC.",
-    cert: "iOS: la primera vez instala el perfil del certificado (botón «Abrir el certificado» en el PC o abre /ca) y actívalo en Ajustes → General → VPN y dispositivo.",
+    cert: "Si no aparecen los sensores, instala el certificado (botón «Abrir el certificado» en el PC o abre /ca).",
   },
   android: {
     intro: "Convierte tu teléfono Android en un volante para juegos de carreras en el PC.",
-    cert: "Android: al abrir la URL acepta el aviso «La conexión no es privada» (o instala el certificado desde /ca). Luego toca «Activar sensores».",
+    cert: "",
   },
   other: {
     intro: "Convierte tu teléfono en un volante para juegos de carreras en el PC.",
@@ -422,7 +422,10 @@ function applyDevice() {
   const intro = $("deviceIntro");
   if (intro) intro.textContent = t.intro;
   const hint = $("certHint");
-  if (hint) hint.textContent = t.cert;
+  if (hint) {
+    hint.textContent = t.cert;
+    hint.style.display = t.cert ? "" : "none";
+  }
   const det = $("deviceDetected");
   if (det) {
     det.textContent = deviceLabel() + (state.devicePref === "auto" ? " (automático)" : " (manual)");

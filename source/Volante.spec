@@ -21,6 +21,7 @@ vg_root = Path(_vg_spec.submodule_search_locations[0])
 _aio_datas, _aio_bins, _aio_hidden = collect_all("aiohttp")
 _qr_datas, _qr_bins, _qr_hidden = collect_all("qrcode")
 _vg_datas, _vg_bins, _vg_hidden = collect_all("vgamepad")
+_cf_datas, _cf_bins, _cf_hidden = collect_all("certifi")
 
 # DLL de ViGEmClient (x64/x86)
 _dll_datas = []
@@ -41,7 +42,7 @@ _msi_datas = [(str(_msi), "vigembus")]
 _web_data = (str(project_root / "web"), "web")
 
 _hiddenimports = sorted(set(
-    _vg_hidden + _aio_hidden + _qr_hidden
+    _vg_hidden + _aio_hidden + _qr_hidden + _cf_hidden
     + collect_submodules("multidict")
     + collect_submodules("yarl")
     + collect_submodules("frozenlist")
@@ -53,8 +54,8 @@ _hiddenimports = sorted(set(
 a = Analysis(
     ["main.py"],
     pathex=[str(project_root)],
-    binaries=_aio_bins + _vg_bins,
-    datas=_aio_datas + _qr_datas + _vg_datas + _dll_datas + _msi_datas + [_web_data],
+    binaries=_aio_bins + _vg_bins + _cf_bins,
+    datas=_aio_datas + _qr_datas + _vg_datas + _cf_datas + _dll_datas + _msi_datas + [_web_data],
     hiddenimports=_hiddenimports,
     hookspath=[],
     hooksconfig={},
