@@ -23,7 +23,14 @@ log = logging.getLogger("volante.update")
 
 REPO = "jeriko90/VolanteMagico"
 BRANCH = "main"
-MANIFEST_URL = f"https://raw.githubusercontent.com/{REPO}/{BRANCH}/update.json"
+
+# Varias fuentes por si raw.githubusercontent esta lento o cachea un 404.
+_MANIFEST_SOURCES = [
+    (f"https://raw.githubusercontent.com/{REPO}/{BRANCH}/update.json", None),
+    (f"https://api.github.com/repos/{REPO}/contents/update.json",
+     {"Accept": "application/vnd.github.raw"}),
+    (f"https://cdn.jsdelivr.net/gh/{REPO}@{BRANCH}/update.json", None),
+]
 
 
 def is_frozen():
@@ -58,10 +65,13 @@ def _parse_version(value):
     return tuple(parts[:3])
 
 
-def _get_json(url, timeout):
-    req = urllib.request.Request(url, headers={"User-Agent": "Volante-Updater"})
+def _fetch(url, timeout, headers=None):
+    merged = {"User-Agent": "Volante-Updater"}
+    if headers:
+        merged.update(headers)
+    req = urllib.request.Request(url, headers=merged)
     with urllib.request.urlopen(req, timeout=timeout, context=_ssl_context()) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+        return resp.read().decode("utf-8")
 
 
 def _dir_writable(path):
@@ -79,16 +89,28 @@ def _dir_writable(path):
 def check_update(timeout=8):
     """Devuelve el dict del manifiesto si hay version nueva, si no None.
 
-    Lanza una excepcion si no se pudo consultar (sin red, etc.).
+    Prueba varias fuentes (raw, API, jsDelivr). Lanza una excepcion solo si
+    ninguna respondio (sin red, etc.).
     """
-    manifest = _get_json(f"{MANIFEST_URL}?_={int(time.time())}", timeout)
-    remote = manifest.get("version")
-    if not remote:
+    last_error = None
+    for base, headers in _MANIFEST_SOURCES:
+        url = f"{base}{'&' if '?' in base else '?'}_={int(time.time())}"
+        try:
+            manifest = json.loads(_fetch(url, timeout, headers))
+        except Exception as exc:
+            last_error = exc
+            log.warning("Manifiesto no disponible en %s: %s", base, exc)
+            continue
+        remote = manifest.get("version")
+        if not remote:
+            continue
+        if _parse_version(remote) > _parse_version(__version__):
+            log.info("Actualizacion disponible: %s -> %s", __version__, remote)
+            return manifest
+        log.info("Sin actualizaciones (local=%s remoto=%s)", __version__, remote)
         return None
-    if _parse_version(remote) > _parse_version(__version__):
-        log.info("Actualizacion disponible: %s -> %s", __version__, remote)
-        return manifest
-    log.info("Sin actualizaciones (local=%s remoto=%s)", __version__, remote)
+    if last_error:
+        raise last_error
     return None
 
 
