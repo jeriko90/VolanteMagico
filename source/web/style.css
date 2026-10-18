@@ -28,12 +28,26 @@ html, body {
 
 body { position: fixed; inset: 0; }
 
+/* ============================ stage ============================
+   El "stage" es el lienzo que se rota cuando el teléfono está en
+   horizontal pero su rotación automática está bloqueada (el viewport
+   sigue en vertical). Así la UI se ve horizontal igualmente. */
+#stage { position: fixed; inset: 0; }
+
+body.rot #stage {
+  inset: auto;
+  top: 50%; left: 50%;
+  width: 100vh; height: 100vw;
+  transform-origin: center center;
+}
+body.rot.rot-cw #stage { transform: translate(-50%, -50%) rotate(90deg); }
+body.rot.rot-ccw #stage { transform: translate(-50%, -50%) rotate(-90deg); }
+
 /* ============================ app ============================ */
 #app {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  height: 100dvh;
+  height: 100%;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   touch-action: none; /* la zona de conducción no debe hacer scroll ni zoom */
 }
@@ -48,7 +62,8 @@ body { position: fixed; inset: 0; }
   background: var(--card);
   border-bottom: 1px solid var(--line);
 }
-.brand { font-weight: 800; letter-spacing: 3px; font-size: 14px; color: var(--accent); }
+.brand { font-weight: 800; letter-spacing: 3px; font-size: 14px; color: var(--accent); display: flex; align-items: center; gap: 7px; }
+.idPill { letter-spacing: 1px; background: var(--card2); color: var(--fg); }
 .stats { display: flex; align-items: center; gap: 6px; }
 .pill {
   font-size: 11px; padding: 4px 9px; border-radius: 999px;
@@ -109,8 +124,9 @@ body { position: fixed; inset: 0; }
 /* dirección */
 #steerTrack {
   position: relative;
-  height: 30px;
-  border-radius: 15px;
+  flex: 0 0 auto;
+  height: 22px;
+  border-radius: 11px;
   background: #0b0e13;
   border: 1px solid var(--line);
   overflow: hidden;
@@ -120,24 +136,73 @@ body { position: fixed; inset: 0; }
   background: #333a46; transform: translateX(-50%);
 }
 #steerMarker {
-  position: absolute; top: 3px; bottom: 3px; left: 50%; width: 22px;
-  border-radius: 11px;
+  position: absolute; top: 2px; bottom: 2px; left: 50%; width: 18px;
+  border-radius: 9px;
   background: linear-gradient(var(--accent), var(--accent-d));
   transform: translateX(-50%);
   box-shadow: 0 0 14px rgba(62,166,255,.55);
 }
-#steerValue {
-  text-align: center; margin-top: 4px;
-  font-size: 22px; font-weight: 800; letter-spacing: 1px; color: var(--fg);
-}
 
-/* controles */
-#controls { flex: 1; min-height: 0; display: flex; gap: 8px; }
-#ctlGrid {
-  flex: 1; min-width: 0;
+/* cuadro de mandos: velocidad + cambio + barra de RPM (telemetría) */
+#dash {
+  flex: 0 0 auto;
+  background: #0b0e13;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 8px 12px 9px;
+}
+#rpmBar {
+  position: relative;
+  height: 10px;
+  border-radius: 5px;
+  background: #141922;
+  overflow: hidden;
+}
+#rpmFill {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
+  background: linear-gradient(90deg, var(--accent), #6ee7a0 60%, #ffd23d 85%, var(--red));
+  transition: width .08s linear;
+}
+#rpmFill.redline {
+  background: linear-gradient(90deg, var(--red), #ff9c3d);
+  box-shadow: 0 0 12px rgba(255,92,92,.8);
+}
+#dashRow {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-top: 6px;
+}
+#gearBox {
+  flex: 0 0 auto;
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  background: var(--card2);
+  border: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 23px; font-weight: 800; color: var(--fg);
+}
+#speedBox { flex: 1; display: flex; align-items: baseline; justify-content: center; gap: 6px; }
+#speedVal {
+  font-size: 50px; font-weight: 800; line-height: 1; letter-spacing: 1px;
+  font-variant-numeric: tabular-nums; color: #fff;
+  text-shadow: 0 0 18px rgba(62,166,255,.35);
+}
+#speedUnit { font-size: 13px; font-weight: 700; color: var(--muted); }
+#steerBox { flex: 0 0 auto; min-width: 52px; text-align: right; }
+#steerValue { font-size: 17px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* controles: 3 botones grandes (freno mano, cambio+, cambio−) + 2 pequeños */
+#controls { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+#ctlBig {
+  flex: 1; min-height: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-auto-rows: 1fr;
+  gap: 8px;
+}
+#ctlSmall {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
 .ctl {
@@ -145,14 +210,15 @@ body { position: fixed; inset: 0; }
   color: var(--fg);
   border: 1px solid var(--line);
   border-radius: 14px;
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 800;
   letter-spacing: .5px;
   line-height: 1.15;
-  padding: 6px;
+  padding: 8px;
   box-shadow: 0 2px 0 rgba(0,0,0,.35);
   transition: transform .04s ease, background .06s ease, color .06s ease;
 }
+.ctl.small { font-size: 12px; padding: 10px 6px; color: var(--muted); }
 .ctl.wide { grid-column: 1 / -1; }
 .ctl:active, .ctl.active {
   background: linear-gradient(180deg, var(--accent), var(--accent-d));
@@ -162,8 +228,10 @@ body { position: fixed; inset: 0; }
   box-shadow: 0 0 18px rgba(62,166,255,.5);
 }
 
-/* d-pad */
-#dpad { position: relative; flex: 0 0 auto; width: 132px; height: 132px; align-self: center; }
+/* d-pad: oculto por defecto; se activa en Ajustes → "Mostrar D-Pad" */
+#dpad { display: none; position: relative; flex: 0 0 auto; width: 132px; height: 132px; align-self: center; }
+body.show-dpad #dpad { display: block; }
+
 .dp {
   position: absolute; width: 44px; height: 44px; border-radius: 12px;
   background: linear-gradient(180deg, var(--card2), var(--card));
@@ -244,41 +312,30 @@ body { position: fixed; inset: 0; }
 }
 .row.buttons button:active { background: var(--accent); color: #06121c; }
 
-/* ============================ aviso horizontal ============================ */
-#rotateOverlay {
-  position: fixed; inset: 0; z-index: 100;
-  background: var(--bg);
-  display: none;
-  flex-direction: column; align-items: center; justify-content: center;
-  gap: 18px; text-align: center; padding: 24px;
+/* ---------------------------- código de conexión ---------------------------- */
+.codeRow { align-items: center; }
+.codeInput {
+  width: 45%; text-align: center; letter-spacing: 5px;
+  font-weight: 800; font-size: 20px; text-transform: uppercase;
+  background: #0b0e13; color: var(--fg); border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px; font-family: "Consolas", monospace;
 }
-#rotateIcon {
-  width: 76px; height: 116px;
-  border: 4px solid var(--accent); border-radius: 14px;
-  position: relative;
-  animation: rotateHint 1.6s ease-in-out infinite;
+.codeError { color: var(--red); font-size: 12px; min-height: 1em; margin: 8px 0 0; }
+.codeInfo { display: flex; align-items: center; gap: 10px; }
+.codeInfo b { font-family: "Consolas", monospace; letter-spacing: 3px; color: var(--accent); }
+.mini {
+  padding: 7px 12px; border-radius: 9px; border: 1px solid var(--line);
+  background: #0b0e13; color: var(--fg); font-weight: 700; font-size: 12px;
 }
-#rotateIcon::after {
-  content: ""; position: absolute; left: 50%; bottom: 8px;
-  width: 26px; height: 4px; border-radius: 2px;
-  background: var(--accent); transform: translateX(-50%);
-}
-.rotateMsg { font-size: 20px; font-weight: 800; margin: 0; }
-@keyframes rotateHint {
-  0%, 32% { transform: rotate(0deg); }
-  60%, 100% { transform: rotate(90deg); }
-}
+.mini:active { background: var(--accent); color: #06121c; }
 
-/* En pantallas táctiles verticales, pedir el modo horizontal */
-@media (orientation: portrait) and (pointer: coarse) {
-  #rotateOverlay { display: flex; }
-}
+/* ============================ postura ============================
+   En vertical (o antes de activar sensores) los pedales van abajo.
+   La clase la pone app.js según la postura real del teléfono, no la
+   orientación del viewport (que puede estar bloqueada). */
+.posture-portrait #main { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr auto; }
+.posture-portrait #center { grid-column: 1 / -1; grid-row: 1; }
+.posture-portrait #brake { grid-column: 1; grid-row: 2; width: auto; max-width: none; height: 20vh; min-height: 120px; }
+.posture-portrait #throttle { grid-column: 2; grid-row: 2; width: auto; max-width: none; height: 20vh; min-height: 120px; }
+.posture-portrait .grid2 { grid-template-columns: 1fr; }
 
-/* Respaldo en vertical: centro arriba, pedales abajo */
-@media (orientation: portrait) {
-  #main { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr auto; }
-  #center { grid-column: 1 / -1; grid-row: 1; }
-  #brake { grid-column: 1; grid-row: 2; width: auto; max-width: none; height: 20vh; min-height: 120px; }
-  #throttle { grid-column: 2; grid-row: 2; width: auto; max-width: none; height: 20vh; min-height: 120px; }
-  .grid2 { grid-template-columns: 1fr; }
-}

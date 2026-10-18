@@ -7,6 +7,13 @@ from paths import config_path
 
 DEFAULT_CONFIG = {
     "port": 8443,
+    "publicUrl": "",
+    "internetEnabled": False,
+    "tunnelToken": "",
+    "invites": [],
+    "inviteOnly": True,
+    "showDpad": False,
+    "telemetryPort": 9999,
     "maxSteerDegrees": 45,
     "axis": "auto",
     "deadzone": 0.05,
@@ -39,6 +46,10 @@ def load_config():
                     merged = dict(DEFAULT_CONFIG["buttons"])
                     merged.update(user["buttons"])
                     cfg["buttons"] = merged
+                if not isinstance(cfg.get("invites"), list):
+                    cfg["invites"] = []
+                if cfg.get("publicUrl") is None:
+                    cfg["publicUrl"] = ""
         except Exception:
             pass
     else:

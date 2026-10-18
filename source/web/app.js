@@ -7,6 +7,7 @@
 ----------------------------------------------------------------*/
 
 const config = {
+  showDpad: false,
   maxSteerDegrees: 45,
   axis: "auto",
   deadzone: 0.05,
@@ -22,6 +23,11 @@ const config = {
 const state = {
   ws: null,
   connected: false,
+  clientId: null,
+  player: null,
+  maxPlayers: null,
+  rejected: false,
+  rejectDetail: "",
   sensorOn: false,
   calibrated: false,
   center: { sx: 0, sy: 0 },
@@ -47,19 +53,58 @@ const state = {
 
 const $ = (id) => document.getElementById(id);
 
+/* ------------------------- código de cliente -------------------------
+   Cada teléfono tiene un código corto y único. Viene en la URL
+   (?c=XXXXXX, único por cliente vía el QR de la PC) o se escribe a mano
+   en la pantalla «Conectar». Se guarda en localStorage para que al
+   reabrir la web conserve su identidad y siga siendo el mismo jugador.
+   Con «solo invitados» el PC rechaza cualquier código no autorizado. */
+const CODE_KEY = "volante.clientId";
+
+function urlCode() {
+  try {
+    const q = new URLSearchParams(location.search).get("c");
+    if (q && /^[a-z0-9]{4,10}$/i.test(q.trim())) return q.trim().toUpperCase();
+  } catch (e) {}
+  return "";
+}
+
+function storedCode() {
+  try { return (localStorage.getItem(CODE_KEY) || "").toUpperCase(); } catch (e) { return ""; }
+}
+
+function saveCode(c) {
+  try { localStorage.setItem(CODE_KEY, c); } catch (e) {}
+}
+
+function validCode(c) {
+  return /^[A-Z0-9]{4,10}$/.test((c || "").toUpperCase());
+}
+
+const fromUrl = urlCode();
+if (validCode(fromUrl)) saveCode(fromUrl);
+const CLIENT_ID = validCode(fromUrl) ? fromUrl : (validCode(storedCode()) ? storedCode() : "");
+
 /* ------------------------- conexión ------------------------- */
 function connect() {
+  if (state.rejected) return;
+  const code = currentCode();
+  if (!validCode(code)) { showCodeOverlay(); return; }
   const proto = location.protocol === "https:" ? "wss" : "ws";
   let ws;
   try {
-    ws = new WebSocket(`${proto}://${location.host}/ws`);
+    ws = new WebSocket(`${proto}://${location.host}/ws?c=${encodeURIComponent(code)}`);
   } catch (e) {
     setTimeout(connect, 1500);
     return;
   }
   state.ws = ws;
   ws.onopen = () => { state.connected = true; updateConn(); };
-  ws.onclose = () => { state.connected = false; updateConn(); setTimeout(connect, 1500); };
+  ws.onclose = () => {
+    state.connected = false;
+    updateConn();
+    if (!state.rejected) setTimeout(connect, 1500);
+  };
   ws.onerror = () => { try { ws.close(); } catch (e) {} };
   ws.onmessage = onMessage;
 }
@@ -69,7 +114,26 @@ function onMessage(ev) {
   try { msg = JSON.parse(ev.data); } catch (e) { return; }
   if (msg.type === "welcome") {
     if (msg.config) { Object.assign(config, msg.config); }
+    if (msg.clientId) state.clientId = String(msg.clientId).toUpperCase();
+    if (msg.player) state.player = msg.player;
+    if (msg.maxPlayers) state.maxPlayers = msg.maxPlayers;
+    state.rejected = false;
+    hideCodeOverlay();
+    applyClientUI();
     applyConfigToUI();
+  } else if (msg.type === "rejected") {
+    state.rejected = true;
+    state.rejectDetail = msg.detail || "";
+    if (msg.reason === "full") {
+      showCodeOverlay("No hay mandos libres (máximo " + (state.maxPlayers || 4) +
+                      " jugadores). Pide al PC que libere uno.");
+    } else {
+      showCodeOverlay(msg.detail || "Código no autorizado. Pide tu código al PC.");
+    }
+  } else if (msg.type === "players") {
+    applyPlayers(msg.players || []);
+  } else if (msg.type === "dash") {
+    updateDash(msg);
   } else if (msg.type === "pong") {
     if (typeof msg.ts === "number") {
       state.latency = Math.max(0, Date.now() - msg.ts);
@@ -89,7 +153,93 @@ function send(obj) {
 }
 
 function sendStat() {
-  send({ type: "stat", latency: state.latency, battery: state.battery });
+  send({ type: "stat", latency: state.latency, battery: state.battery,
+         device: effectiveDevice() });
+}
+
+/* ------------------- identidad / código / jugador ------------------- */
+function currentCode() {
+  return state.clientId || CLIENT_ID || storedCode();
+}
+
+function applyClientUI() {
+  const id = currentCode();
+  const pill = $("clientIdPill");
+  if (pill) pill.textContent = "ID " + (id || "----");
+  const shown = $("codeShown");
+  if (shown) shown.textContent = id || "----";
+  const pp = $("playerPill");
+  if (pp) pp.textContent = state.player ? ("Jugador " + state.player) : "Jugador --";
+}
+
+function applyPlayers(list) {
+  const mine = list.find((p) => p.code === currentCode());
+  if (mine && mine.player) {
+    state.player = mine.player;
+    applyClientUI();
+  }
+}
+
+/* ------------------- entrada del código ------------------- */
+function showCodeOverlay(message) {
+  const ov = $("codeOverlay");
+  if (!ov) return;
+  const err = $("codeError");
+  if (err) err.textContent = message || "";
+  ov.classList.remove("hidden");
+  const inp = $("codeInput");
+  if (inp) {
+    inp.value = currentCode();
+    setTimeout(() => { try { inp.focus(); } catch (e) {} }, 50);
+  }
+}
+
+function hideCodeOverlay() {
+  const ov = $("codeOverlay");
+  if (ov) ov.classList.add("hidden");
+}
+
+function submitCode() {
+  const inp = $("codeInput");
+  const raw = (inp ? inp.value : "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (!validCode(raw)) {
+    const err = $("codeError");
+    if (err) err.textContent = "Código inválido. Usa 4–10 letras o números.";
+    return;
+  }
+  saveCode(raw);
+  state.rejected = false;
+  state.rejectDetail = "";
+  state.clientId = raw;
+  hideCodeOverlay();
+  applyClientUI();
+  const old = state.ws;
+  if (old) { old.onclose = null; try { old.close(); } catch (e) {} }
+  connect();
+}
+
+function changeCode() {
+  state.rejected = true; // detiene la reconexión hasta que ponga otro código
+  try { if (state.ws) state.ws.close(); } catch (e) {}
+  showCodeOverlay("Escribe tu nuevo código (pídelo en el PC).");
+}
+
+/* ------------------- cuadro de mandos (telemetría) -------------------
+   Velocidad, vueltas y cambio llegan del PC (Forza Data Out por UDP).
+   Sin telemetría el marcador queda en "--" y el resto sigue funcionando. */
+function updateDash(msg) {
+  const live = !!msg.live;
+  const sv = $("speedVal");
+  if (sv) sv.textContent = live ? String(Math.round(msg.speed || 0)) : "--";
+  const g = $("gear");
+  if (g) g.textContent = live ? String(msg.gear || "\u2013") : "\u2013";
+  const rf = $("rpmFill");
+  if (rf) {
+    const maxRpm = msg.maxRpm > 0 ? msg.maxRpm : 9000;
+    const pct = live ? Math.max(0, Math.min(100, (msg.rpm || 0) / maxRpm * 100)) : 0;
+    rf.style.width = pct + "%";
+    rf.classList.toggle("redline", !!(live && msg.rpm / maxRpm > 0.88));
+  }
 }
 
 /* ------------------------- sensores ------------------------- */
@@ -111,9 +261,11 @@ async function enableSensors() {
 
   window.addEventListener("deviceorientation", onOrientation, true);
   state.sensorOn = true;
+  state.hasData = false;
 
   goFullscreen();
   $("startOverlay").classList.add("hidden");
+  setTimeout(updatePosture, 200);
 }
 
 function onOrientation(e) {
@@ -140,6 +292,44 @@ function recenter() {
   state.targetSteer = 0;
 }
 
+/* ---------------- postura real (horizontal aunque la rotación esté bloqueada) ----------------
+   La rotación automática del sistema puede estar bloqueada: el viewport sigue
+   en vertical aunque el teléfono esté horizontal. Detectamos la postura real
+   con los sensores y, si no coincide con el viewport, rotamos todo el lienzo
+   (#stage) 90º para que la UI se vea horizontal igualmente. También cambiamos
+   la maquetación (clases en <body>) según la postura percibida, no según el
+   viewport, que con la rotación bloqueada no refleja la realidad. */
+function postureAngle() {
+  // Ángulo del "arriba" del mundo respecto al viewport (0 = vertical).
+  let a = -spinAngle();
+  a = ((a % 360) + 540) % 360 - 180;
+  return a;
+}
+
+function updatePosture() {
+  const body = document.body;
+  const hasSensor = state.hasData;
+  const angle = hasSensor ? postureAngle() : 0;
+  const physLandscape = hasSensor && Math.abs(angle) > 45 && Math.abs(angle) < 135;
+  const viewportLandscape = window.innerWidth > window.innerHeight;
+
+  // Rotación solo cuando la postura no coincide con el viewport (rotación
+  // automática bloqueada). Si el viewport ya está en horizontal no rotamos
+  // (el sistema lo hizo bien y rotar de nuevo lo pondría de través).
+  let rot = 0;
+  if (physLandscape && !viewportLandscape) rot = angle > 0 ? 90 : -90;
+
+  // La maquetación sigue la postura REAL del teléfono si la conocemos
+  // (sensores activos); si no, la del viewport.
+  const effLandscape = hasSensor ? physLandscape : viewportLandscape;
+
+  body.classList.toggle("posture-landscape", effLandscape);
+  body.classList.toggle("posture-portrait", !effLandscape);
+  body.classList.toggle("rot", rot !== 0);
+  body.classList.toggle("rot-cw", rot === 90);
+  body.classList.toggle("rot-ccw", rot === -90);
+}
+
 function goFullscreen() {
   const el = document.documentElement;
   try {
@@ -151,6 +341,7 @@ function goFullscreen() {
       screen.orientation.lock("landscape").catch(() => {});
     }
   } catch (e) {}
+  try { updatePosture(); } catch (e) {}
 }
 
 /* ------------------------- pedales ------------------------- */
@@ -464,6 +655,7 @@ function applyConfigToUI() {
   $("pedalMode").value = config.pedalMode;
   $("invert").checked = !!config.invert;
   $("pitchPedals").checked = !!config.pitchPedals;
+  if ($("showDpad")) $("showDpad").checked = !!config.showDpad;
   updateConfigLabels();
 }
 
@@ -472,6 +664,7 @@ function updateConfigLabels() {
   $("vDz").textContent = Number(config.deadzone).toFixed(2);
   $("vExpo").textContent = Number(config.expo).toFixed(2);
   $("vSm").textContent = Number(config.smoothing).toFixed(2);
+  document.body.classList.toggle("show-dpad", !!config.showDpad);
 }
 
 function persistConfig() {
@@ -488,6 +681,7 @@ function setupSettings() {
     ["pedalMode", "pedalMode", (v) => v],
     ["invert", "invert", (v, el) => el.checked],
     ["pitchPedals", "pitchPedals", (v, el) => el.checked],
+    ["showDpad", "showDpad", (v, el) => el.checked],
   ];
   map.forEach(([id, key, parse]) => {
     const el = $(id);
@@ -533,8 +727,21 @@ function setupBattery() {
 }
 
 /* ------------------------- arranque ------------------------- */
+function setupCodeUI() {
+  const btn = $("codeBtn");
+  if (btn) btn.addEventListener("click", submitCode);
+  const inp = $("codeInput");
+  if (inp) {
+    inp.addEventListener("keydown", (e) => { if (e.key === "Enter") submitCode(); });
+  }
+  const change = $("changeCodeBtn");
+  if (change) change.addEventListener("click", changeCode);
+}
+
 function init() {
   $("startBtn").addEventListener("click", enableSensors);
+  setupCodeUI();
+  applyClientUI();
   setupButtons();
   setupPedal($("throttle"), "throttle");
   setupPedal($("brake"), "brake");
@@ -543,7 +750,17 @@ function init() {
   setupDevice();
   setupBattery();
   applyConfigToUI();
-  connect();
+  updatePosture();
+
+  if (!validCode(CLIENT_ID)) {
+    showCodeOverlay("Escribe el código que te dio el PC.");
+  } else {
+    connect();
+  }
+
+  window.addEventListener("resize", updatePosture);
+  window.addEventListener("orientationchange", () => setTimeout(updatePosture, 150));
+  setInterval(updatePosture, 250);
 
   setInterval(tick, 16);
   setInterval(() => { state.pingTs = Date.now(); state.wantPing = true; }, 1000);

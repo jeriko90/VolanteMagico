@@ -21,6 +21,10 @@ certs/
 *.der
 *.mobileconfig
 
+# Conexión por internet (binario descargado por la app)
+cloudflared.exe
+cloudflared-*.tmp
+
 # OS / editors
 Thumbs.db
 .DS_Store

@@ -10,136 +10,165 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div id="app">
-  <header id="topbar">
-    <div class="brand">VOLANTE</div>
-    <div class="stats">
-      <span id="conn" class="pill off">desconectado</span>
-      <span id="lat" class="pill">-- ms</span>
-      <span id="bat" class="pill">-- %</span>
-      <button id="settingsBtn" class="icon" aria-label="Ajustes">&#9881;</button>
-    </div>
-  </header>
+<div id="stage">
+  <div id="app">
+    <header id="topbar">
+      <div class="brand">VOLANTE <span id="clientIdPill" class="pill idPill">ID ----</span></div>
+      <div class="stats">
+        <span id="playerPill" class="pill">Jugador --</span>
+        <span id="conn" class="pill off">desconectado</span>
+        <span id="lat" class="pill">-- ms</span>
+        <span id="bat" class="pill">-- %</span>
+        <button id="settingsBtn" class="icon" aria-label="Ajustes">&#9881;</button>
+      </div>
+    </header>
 
-  <main id="main">
-    <div id="brake" class="pedal brake">
-      <div class="fill"></div>
-      <span class="pedalPct"></span>
-      <span class="pedalLabel">FRENO</span>
-    </div>
+    <main id="main">
+      <div id="brake" class="pedal brake">
+        <div class="fill"></div>
+        <span class="pedalPct"></span>
+        <span class="pedalLabel">FRENO</span>
+      </div>
 
-    <section id="center">
-      <div id="steerWrap">
+      <section id="center">
         <div id="steerTrack">
           <div id="steerMarker"></div>
         </div>
-        <div id="steerValue">0&deg;</div>
-      </div>
 
-      <div id="controls">
-        <div id="ctlGrid">
-          <button class="ctl wide" data-key="handbrake">FRENO&nbsp;MANO</button>
-          <button class="ctl" data-key="shiftDown">CAMBIO&nbsp;&minus;</button>
-          <button class="ctl" data-key="shiftUp">CAMBIO&nbsp;+</button>
-          <button class="ctl" data-key="camera">CÁMARA</button>
-          <button class="ctl" data-key="horn">BOCINA</button>
+        <div id="dash">
+          <div id="rpmBar"><div id="rpmFill"></div></div>
+          <div id="dashRow">
+            <div id="gearBox"><span id="gear">&ndash;</span></div>
+            <div id="speedBox">
+              <span id="speedVal">--</span><span id="speedUnit">km/h</span>
+            </div>
+            <div id="steerBox"><span id="steerValue">0&deg;</span></div>
+          </div>
         </div>
 
-        <div id="dpad">
-          <button class="dp up" data-dpad="up">&#9650;</button>
-          <button class="dp left" data-dpad="left">&#9664;</button>
-          <button class="dp right" data-dpad="right">&#9654;</button>
-          <button class="dp down" data-dpad="down">&#9660;</button>
+        <div id="controls">
+          <div id="ctlBig">
+            <button class="ctl wide" data-key="handbrake">FRENO&nbsp;MANO</button>
+            <button class="ctl" data-key="shiftUp">CAMBIO&nbsp;+</button>
+            <button class="ctl" data-key="shiftDown">CAMBIO&nbsp;&minus;</button>
+          </div>
+
+          <div id="ctlSmall">
+            <button class="ctl small" data-key="camera">CÁMARA</button>
+            <button class="ctl small" data-key="horn">BOCINA</button>
+          </div>
+
+          <div id="dpad">
+            <button class="dp up" data-dpad="up">&#9650;</button>
+            <button class="dp left" data-dpad="left">&#9664;</button>
+            <button class="dp right" data-dpad="right">&#9654;</button>
+            <button class="dp down" data-dpad="down">&#9660;</button>
+          </div>
         </div>
+      </section>
+
+      <div id="throttle" class="pedal throttle">
+        <div class="fill"></div>
+        <span class="pedalPct"></span>
+        <span class="pedalLabel">ACELERADOR</span>
       </div>
-    </section>
-
-    <div id="throttle" class="pedal throttle">
-      <div class="fill"></div>
-      <span class="pedalPct"></span>
-      <span class="pedalLabel">ACELERADOR</span>
-    </div>
-  </main>
-</div>
-
-<!-- Pantalla de inicio: activar sensores -->
-<div id="startOverlay" class="overlay">
-  <div class="panel">
-    <h1>Volante</h1>
-    <p id="deviceIntro">Convierte tu teléfono en un volante para juegos de carreras en el PC.</p>
-    <p class="muted">Necesitas conceder acceso a los <b>sensores de movimiento</b>. Sujeta el teléfono <b>en horizontal</b>, en la posición neutra, antes de activar.</p>
-    <p id="certHint" class="muted small"></p>
-    <button id="startBtn" class="big">Activar sensores</button>
-    <p id="startStatus" class="muted small"></p>
-    <p class="muted small">Dispositivo detectado: <span id="deviceDetected">...</span></p>
+    </main>
   </div>
-</div>
 
-<!-- Ajustes -->
-<div id="settingsOverlay" class="overlay hidden">
-  <div class="panel settings" id="settingsPanel">
-    <div class="panelHead">
-      <h2>Ajustes</h2>
-      <button id="closeX" class="closeX" aria-label="Cerrar ajustes">&#10005;</button>
+  <!-- Pantalla de inicio: activar sensores -->
+  <div id="startOverlay" class="overlay">
+    <div class="panel">
+      <h1>Volante</h1>
+      <p id="deviceIntro">Convierte tu teléfono en un volante para juegos de carreras en el PC.</p>
+      <p class="muted">Necesitas conceder acceso a los <b>sensores de movimiento</b>. Sujeta el teléfono <b>en horizontal</b>, en la posición neutra, antes de activar.</p>
+      <p id="certHint" class="muted small"></p>
+      <button id="startBtn" class="big">Activar sensores</button>
+      <p id="startStatus" class="muted small"></p>
+      <p class="muted small">Dispositivo detectado: <span id="deviceDetected">...</span></p>
     </div>
-
-    <label class="row"><span>Dispositivo</span>
-      <select id="device">
-        <option value="auto">Automático (detectar)</option>
-        <option value="ios">iPhone / iPad (iOS)</option>
-        <option value="android">Android</option>
-      </select></label>
-
-    <div class="grid2">
-      <label class="row"><span>Ángulo máx. (<span id="vMax">45</span>&deg;)</span>
-        <input type="range" id="maxSteerDegrees" min="10" max="180" step="1" value="45"></label>
-
-      <label class="row"><span>Zona muerta (<span id="vDz">0.05</span>)</span>
-        <input type="range" id="deadzone" min="0" max="0.5" step="0.01" value="0.05"></label>
-
-      <label class="row"><span>Curva/Expo (<span id="vExpo">1.00</span>)</span>
-        <input type="range" id="expo" min="0.5" max="3" step="0.05" value="1"></label>
-
-      <label class="row"><span>Suavizado (<span id="vSm">0.35</span>)</span>
-        <input type="range" id="smoothing" min="0" max="0.9" step="0.05" value="0.35"></label>
-    </div>
-
-    <label class="row"><span>Eje de dirección</span>
-      <select id="axis">
-        <option value="auto">Automático (vertical u horizontal)</option>
-        <option value="gamma">Inclinación lateral (gamma)</option>
-        <option value="beta">Inclinación frontal (beta)</option>
-      </select></label>
-
-    <label class="row"><span>Modo de pedales</span>
-      <select id="pedalMode">
-        <option value="both">Ambos (toque = total, deslizar = gradual)</option>
-        <option value="momentary">Todo o nada</option>
-        <option value="gradual">Gradual</option>
-      </select></label>
-
-    <label class="row"><span>Invertir dirección</span>
-      <input type="checkbox" id="invert"></label>
-
-    <label class="row"><span>Gas/freno por inclinación</span>
-      <input type="checkbox" id="pitchPedals"></label>
-
-    <div class="row buttons">
-      <button id="calibBtn">Calibrar centro</button>
-      <button id="recenterBtn">Recentrar</button>
-    </div>
-
-    <div class="readout" id="tiltReadout">Giro: <b>0&deg;</b></div>
-
-    <button id="closeSettings" class="big">Listo</button>
   </div>
-</div>
 
-<!-- Aviso: usar en horizontal -->
-<div id="rotateOverlay">
-  <div id="rotateIcon"></div>
-  <p class="rotateMsg">Gira el teléfono</p>
-  <p class="muted small">Usa Volante en horizontal, como un volante.</p>
+  <!-- Ajustes -->
+  <div id="settingsOverlay" class="overlay hidden">
+    <div class="panel settings" id="settingsPanel">
+      <div class="panelHead">
+        <h2>Ajustes</h2>
+        <button id="closeX" class="closeX" aria-label="Cerrar ajustes">&#10005;</button>
+      </div>
+
+      <label class="row"><span>Dispositivo</span>
+        <select id="device">
+          <option value="auto">Automático (detectar)</option>
+          <option value="ios">iPhone / iPad (iOS)</option>
+          <option value="android">Android</option>
+        </select></label>
+
+      <div class="grid2">
+        <label class="row"><span>Ángulo máx. (<span id="vMax">45</span>&deg;)</span>
+          <input type="range" id="maxSteerDegrees" min="10" max="180" step="1" value="45"></label>
+
+        <label class="row"><span>Zona muerta (<span id="vDz">0.05</span>)</span>
+          <input type="range" id="deadzone" min="0" max="0.5" step="0.01" value="0.05"></label>
+
+        <label class="row"><span>Curva/Expo (<span id="vExpo">1.00</span>)</span>
+          <input type="range" id="expo" min="0.5" max="3" step="0.05" value="1"></label>
+
+        <label class="row"><span>Suavizado (<span id="vSm">0.35</span>)</span>
+          <input type="range" id="smoothing" min="0" max="0.9" step="0.05" value="0.35"></label>
+      </div>
+
+      <label class="row"><span>Eje de dirección</span>
+        <select id="axis">
+          <option value="auto">Automático (vertical u horizontal)</option>
+          <option value="gamma">Inclinación lateral (gamma)</option>
+          <option value="beta">Inclinación frontal (beta)</option>
+        </select></label>
+
+      <label class="row"><span>Modo de pedales</span>
+        <select id="pedalMode">
+          <option value="both">Ambos (toque = total, deslizar = gradual)</option>
+          <option value="momentary">Todo o nada</option>
+          <option value="gradual">Gradual</option>
+        </select></label>
+
+      <label class="row"><span>Invertir dirección</span>
+        <input type="checkbox" id="invert"></label>
+
+      <label class="row"><span>Gas/freno por inclinación</span>
+        <input type="checkbox" id="pitchPedals"></label>
+
+      <label class="row"><span>Mostrar D-Pad (menús del juego)</span>
+        <input type="checkbox" id="showDpad"></label>
+
+      <label class="row"><span>Tu código</span>
+        <span class="codeInfo"><b id="codeShown">----</b>
+          <button id="changeCodeBtn" class="mini">Cambiar</button></span></label>
+
+      <div class="row buttons">
+        <button id="calibBtn">Calibrar centro</button>
+        <button id="recenterBtn">Recentrar</button>
+      </div>
+
+      <div class="readout" id="tiltReadout">Giro: <b>0&deg;</b></div>
+
+      <button id="closeSettings" class="big">Listo</button>
+    </div>
+  </div>
+
+  <!-- Conexión: pedir el código del dispositivo si no vino en el QR -->
+  <div id="codeOverlay" class="overlay hidden">
+    <div class="panel">
+      <h1>Conectar</h1>
+      <p id="codeIntro">Escribe el <b>código</b> que te dio el PC o escanea el QR de tu jugador.</p>
+      <label class="row codeRow"><span>Código</span>
+        <input id="codeInput" class="codeInput" type="text" inputmode="latin"
+               autocapitalize="characters" autocomplete="off" spellcheck="false"
+               maxlength="10" placeholder="ABC123"></label>
+      <p id="codeError" class="codeError"></p>
+      <button id="codeBtn" class="big">Conectar</button>
+      <p class="muted small">Cada teléfono usa su propio código y maneja su propio mando.</p>
+    </div>
+  </div>
 </div>
 
 <script src="app.js"></script>
