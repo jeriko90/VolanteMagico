@@ -15,8 +15,10 @@ import time
 from aiohttp import WSMsgType, web
 
 from certgen import build_mobileconfig, ca_der, ca_pem, ensure_certs
-from config_store import save_config
+from config_store import (PUBLIC_URL, is_valid_pair_code, new_pair_code,
+                          save_config)
 from paths import certs_dir, web_dir
+from version import __version__
 
 try:
     import vgamepad as vg
@@ -53,13 +55,13 @@ if vg is not None:
     }
 
 
-# ------------------------- clientes (IDs) -------------------------
-# Cada teléfono tiene un código/ID corto. El código viaja en la URL como
-# ?c=XXXXXX (así el QR de cada cliente es único) o se escribe a mano. Con
-# "solo invitados" activado, solo los códigos reservados desde el PC pueden
-# entrar; cada uno maneja su propio mando Xbox 360 virtual (multijugador).
+# ------------------------- cliente (código único) -------------------------
+# UN solo código de emparejamiento (pairCode): la PC lo muestra con su QR y
+# el teléfono lo escribe en la web (o escanea el QR con ?c=). Un único
+# teléfono = 1 jugador; reconectar con el mismo código reemplaza la sesión
+# anterior. No hay sistema de invitados ni multijugador.
 CLIENT_ID_RE = re.compile(r"^[A-Z0-9]{4,10}$")
-MAX_PLAYERS = 4
+MAX_PLAYERS = 1
 
 
 def new_client_id():
@@ -192,11 +194,6 @@ class ServerManager:
         self.clients = set()   # WebSockets conectados
         # code -> {code, ws, gamepad, pressed, slot, device, latency, battery, connected_at}
         self.players = {}
-        self.invites = set(self.config.get("invites") or [])
-        # Slots de jugador SOLO en memoria (no se guardan en config):
-        # si se persistieran, en modo abierto cada código libre se
-        # quedaría un slot para siempre y al cuarto se agotarían los 4.
-        self._slot_alloc = {}
         self.telemetry = None
         self.url = None
         self.lan_ip = None
@@ -306,7 +303,20 @@ class ServerManager:
     async def _index(self, request):
         index = os.path.join(WEB_DIR, "index.html")
         if os.path.isfile(index):
-            return web.FileResponse(index)
+            try:
+                with open(index, "r", encoding="utf-8") as fh:
+                    html = fh.read()
+                # Cache-busting por versión: al actualizar la PC, el teléfono
+                # recarga style.css/app.js aunque su navegador los tenga
+                # cacheados (Safari/Chrome son reacios a revalidar).
+                html = html.replace('href="style.css"',
+                                    f'href="style.css?v={__version__}"')
+                html = html.replace('src="app.js"', f'src="app.js?v={__version__}"')
+                return web.Response(text=html, content_type="text/html",
+                                    headers={"Cache-Control": "no-cache"})
+            except Exception:
+                log.exception("No se pudo servir index.html")
+                return web.FileResponse(index)
         return web.Response(text="Volante", content_type="text/html")
 
     async def _ca_mobileconfig(self, request):
@@ -331,22 +341,13 @@ class ServerManager:
             headers={"Content-Disposition": 'attachment; filename="volante-ca.pem"'},
         )
 
-    def _invite_only(self):
-        return bool(self.config.get("inviteOnly", True))
-
-    def _slot_of(self, code):
-        return self._slot_alloc.get(code)
-
-    def _assign_slot(self, code):
-        """Índice de jugador (0..MAX_PLAYERS-1) para ese código, solo en memoria."""
-        if code in self._slot_alloc:
-            return self._slot_alloc[code]
-        used = set(self._slot_alloc.values())
-        for slot in range(MAX_PLAYERS):
-            if slot not in used:
-                self._slot_alloc[code] = slot
-                return slot
-        return None
+    def pair_code(self):
+        """El ÚNICO código de emparejamiento (se genera si no existe)."""
+        code = self.config.get("pairCode") or ""
+        if not is_valid_pair_code(code):
+            code = new_pair_code()
+            self.config["pairCode"] = code
+        return code
 
     def _new_gamepad(self):
         try:
@@ -374,13 +375,9 @@ class ServerManager:
         if not CLIENT_ID_RE.match(code):
             await self._reject(ws, "code", "Falta el código del dispositivo")
             return ws
-        if self._invite_only() and code not in self.invites:
-            log.info("Conexión rechazada de %s: código %s no invitado", peer, code)
-            await self._reject(ws, "code", "Código no autorizado")
-            return ws
-        slot = self._assign_slot(code)
-        if slot is None:
-            await self._reject(ws, "full", "No hay mandos libres (máximo %d)" % MAX_PLAYERS)
+        if code != self.pair_code():
+            log.info("Conexión rechazada de %s: código incorrecto", peer)
+            await self._reject(ws, "code", "Código incorrecto")
             return ws
         gp = self._new_gamepad()
         if gp is None:
@@ -404,7 +401,7 @@ class ServerManager:
             "ws": ws,
             "gamepad": gp,
             "pressed": set(),
-            "slot": slot,
+            "slot": 0,
             "device": "?",
             "latency": None,
             "battery": None,
@@ -413,8 +410,7 @@ class ServerManager:
         self.players[code] = rec
         self.clients.add(ws)
         self.connected = True
-        log.info("Jugador %s conectado desde %s (jugador %d, conectados=%d)",
-                 code, peer, slot + 1, len(self.clients))
+        log.info("Jugador conectado desde %s (conectados=%d)", peer, len(self.clients))
         try:
             await ws.send_json(
                 {
@@ -422,7 +418,7 @@ class ServerManager:
                     "config": self._client_config(),
                     "serverVersion": 3,
                     "clientId": code,
-                    "player": slot + 1,
+                    "player": 1,
                     "maxPlayers": MAX_PLAYERS,
                 }
             )
@@ -440,10 +436,6 @@ class ServerManager:
             if self.players.get(code) is rec:
                 self.players.pop(code, None)
                 self._reset_player(rec)
-            # Si el código no es un invite reservado, su slot queda libre para
-            # otro dispositivo; si lo es, se conserva para el mismo número.
-            if code not in self.invites:
-                self._slot_alloc.pop(code, None)
             if not self.clients:
                 self.connected = False
             log.info("Jugador %s desconectado (conectados=%d)", code, len(self.clients))
@@ -451,8 +443,9 @@ class ServerManager:
         return ws
 
     def _client_config(self):
-        priv = {"invites", "publicUrl", "port", "telemetryPort",
-                "tunnelToken", "internetEnabled", "inviteOnly"}
+        # Nada de claves privadas: pairCode, URL, puertos, túnel ni flags.
+        priv = {"pairCode", "publicUrl", "port", "telemetryPort",
+                "tunnelToken", "internetEnabled"}
         return {k: v for k, v in self.config.items() if k not in priv}
 
     def _broadcast_players(self):
@@ -520,9 +513,9 @@ class ServerManager:
         elif mtype == "config":
             incoming = data.get("config")
             if isinstance(incoming, dict):
-                # Nada de claves privadas: invites, puertos, túnel ni flags de
-                # seguridad. Todo lo demás son ajustes del teléfono.
-                priv = {"invites", "inviteOnly", "publicUrl",
+                # Nada de claves privadas: pairCode, URL, puertos, túnel ni
+                # flags de seguridad. Todo lo demás son ajustes del teléfono.
+                priv = {"pairCode", "publicUrl",
                         "port", "telemetryPort", "tunnelToken", "internetEnabled"}
                 applied = {k: v for k, v in incoming.items() if k not in priv}
                 if applied:
@@ -600,11 +593,7 @@ class ServerManager:
 
     # ---- API para la GUI ----------------------------------------------
     def players_snapshot(self):
-        """Lista para la ventana del PC: jugadores conectados + invites libres.
-
-        Cada código reservado con «Nuevo QR de cliente» es un mando propio
-        (multijugador). Los que aún no se han abierto aparecen como pendientes.
-        """
+        """Único teléfono: conectado (0 o 1 fila) con latencia/batería."""
         now = time.time()
         out = []
         for rec in list(self.players.values()):
@@ -617,74 +606,18 @@ class ServerManager:
                 "battery": rec.get("battery"),
                 "seconds": int(now - rec.get("connected_at", now)),
             })
-        conectados = {r["id"] for r in out}
-        for cid in sorted(self.invites):
-            if cid not in conectados:
-                slot = self._slot_of(cid)
-                out.append({
-                    "id": cid,
-                    "player": (slot + 1) if slot is not None else None,
-                    "pending": True,
-                    "device": "",
-                    "latency": None,
-                    "battery": None,
-                    "seconds": -1,
-                })
-        out.sort(key=lambda r: (r.get("pending", False),
-                                r["player"] if r["player"] else 99, r["id"]))
+        out.sort(key=lambda r: r["id"])
         return out
 
-    def request_kick(self, client_id):
-        log.info("GUI: expulsar cliente %s", client_id)
-        if self.loop is None:
-            return
-        code = (client_id or "").upper()
-
-        def _kick():
-            rec = self.players.get(code)
-            if rec is not None and rec.get("ws") is not None:
-                asyncio.ensure_future(rec["ws"].close())
-
-        self.loop.call_soon_threadsafe(_kick)
-
-    def create_invite(self):
-        """Crea un código reservado para el QR de un cliente concreto."""
-        cid = None
-        for _ in range(50):
-            cand = new_client_id()
-            if cand not in self.players and cand not in self.invites:
-                cid = cand
-                break
-        cid = cid or new_client_id()
-        self.invites.add(cid)
-        self.config["invites"] = sorted(self.invites)
-        # Reserva ya el número de jugador para que el PC lo muestre desde el QR.
-        self._assign_slot(cid)
-        save_config(self.config)
-        log.info("GUI: invite de cliente creado: %s", cid)
-        return cid
-
-    def remove_invite(self, client_id):
-        """Quita un código reservado (y su número de jugador) del PC."""
-        code = (client_id or "").upper()
-        self.invites.discard(code)
-        self._slot_alloc.pop(code, None)
-        self.config["invites"] = sorted(self.invites)
-        save_config(self.config)
-        log.info("GUI: invite eliminado: %s", code)
-
-    def set_invite_only(self, value):
-        self.config["inviteOnly"] = bool(value)
-        save_config(self.config)
-        log.info("GUI: solo invitados = %s", bool(value))
-
     def set_public_url(self, url):
-        url = (url or "").strip().rstrip("/")
-        if url and not url.startswith(("http://", "https://")):
-            url = "https://" + url
-        self.config["publicUrl"] = url
-        save_config(self.config)
-        log.info("GUI: URL pública = %s", url or "(sin definir)")
+        """Dominio fijo e inmutable: cualquier intento de cambio se ignora."""
+        clean = (url or "").strip().rstrip("/")
+        if clean and clean not in (PUBLIC_URL, PUBLIC_URL.removeprefix("https://")):
+            log.info("publicUrl es fijo (%s); se ignora: %s", PUBLIC_URL, clean)
+        if self.config.get("publicUrl") != PUBLIC_URL:
+            self.config["publicUrl"] = PUBLIC_URL
+            save_config(self.config)
+            log.info("publicUrl restaurado al dominio fijo: %s", PUBLIC_URL)
 
     def base_url(self, use_public=True):
         public = (self.config.get("publicUrl") or "").strip()
@@ -692,13 +625,13 @@ class ServerManager:
             return public
         return self.url or ""
 
-    def client_url(self, client_id, use_public=True):
+    def client_url(self, client_id=None, use_public=True):
+        """URL del teléfono; sin código explícito usa el pairCode, así el QR
+        del PC empareja directamente al escanearlo."""
         base = self.base_url(use_public)
         if not base:
             return ""
-        if client_id:
-            return f"{base}/?c={client_id}"
-        return base
+        return f"{base}/?c={client_id or self.pair_code()}"
 
     def request_reset(self):
         log.info("GUI: reiniciar mandos solicitado.")

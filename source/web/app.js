@@ -53,12 +53,11 @@ const state = {
 
 const $ = (id) => document.getElementById(id);
 
-/* ------------------------- código de cliente -------------------------
-   Cada teléfono tiene un código corto y único. Viene en la URL
-   (?c=XXXXXX, único por cliente vía el QR de la PC) o se escribe a mano
-   en la pantalla «Conectar». Se guarda en localStorage para que al
-   reabrir la web conserve su identidad y siga siendo el mismo jugador.
-   Con «solo invitados» el PC rechaza cualquier código no autorizado. */
+/* ------------------------- código de conexión -------------------------
+   UN solo código de emparejamiento (pairCode): la PC lo muestra con su QR
+   (?c=XXXXXX, el QR ya lo trae) o se escribe a mano en «Conectar».
+   Se guarda en localStorage para que al reabrir la web conserve el acceso.
+   El PC solo acepta su propio código: cualquier otro se rechaza. */
 const CODE_KEY = "volante.clientId";
 
 function urlCode() {
@@ -125,10 +124,9 @@ function onMessage(ev) {
     state.rejected = true;
     state.rejectDetail = msg.detail || "";
     if (msg.reason === "full") {
-      showCodeOverlay("No hay mandos libres (máximo " + (state.maxPlayers || 4) +
-                      " jugadores). Pide al PC que libere uno.");
+      showCodeOverlay("El PC ya tiene un teléfono conectado. Desconéctalo e inténtalo otra vez.");
     } else {
-      showCodeOverlay(msg.detail || "Código no autorizado. Pide tu código al PC.");
+      showCodeOverlay(msg.detail || "Código incorrecto. Escanea el QR de la PC o pídeselo.");
     }
   } else if (msg.type === "players") {
     applyPlayers(msg.players || []);
@@ -221,7 +219,7 @@ function submitCode() {
 function changeCode() {
   state.rejected = true; // detiene la reconexión hasta que ponga otro código
   try { if (state.ws) state.ws.close(); } catch (e) {}
-  showCodeOverlay("Escribe tu nuevo código (pídelo en el PC).");
+  showCodeOverlay("Escribe el código que muestra la PC.");
 }
 
 /* ------------------- cuadro de mandos (telemetría) -------------------
@@ -578,7 +576,7 @@ function updateStats() {
 const DEVICE_TEXT = {
   ios: {
     intro: "Convierte tu iPhone o iPad en un volante para juegos de carreras en el PC.",
-    cert: "Si no aparecen los sensores, instala el certificado (botón «Abrir el certificado» en el PC o abre /ca).",
+    cert: "Si no aparecen los sensores, instala el certificado abriendo /ca en este mismo navegador.",
   },
   android: {
     intro: "Convierte tu teléfono Android en un volante para juegos de carreras en el PC.",
@@ -753,7 +751,7 @@ function init() {
   updatePosture();
 
   if (!validCode(CLIENT_ID)) {
-    showCodeOverlay("Escribe el código que te dio el PC.");
+    showCodeOverlay("Escribe el código que muestra la PC.");
   } else {
     connect();
   }
